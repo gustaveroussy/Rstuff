@@ -149,7 +149,7 @@ nmf_run <- function(data = NULL, rank = 2:3, method = "brunet", default.seed = "
   
   print("Plotting consensus heatmap ...")
   pdf(paste0(oroot, "_consensus.hmap.pdf"), width = 29.7/cm(1), height = 21/cm(1))
-  if (is.null(classes)) consensusmap(nmf.res) else consensusmap(nmf.res, annCol = classes)
+  if (is.null(classes)) NMF::consensusmap(nmf.res) else consensusmap(nmf.res, annCol = classes)
   dev.off()
   
   if(length(rank) > 1) {

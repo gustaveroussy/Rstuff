@@ -25,8 +25,7 @@
 ## . First release
 
 
-## Just gives the names of built-in NMF methods in package NMF
-## NOTA : "ls-nmf" and "pe-nmf" seems to fail with my typical datasets...
+## Just gives the names of built-in skmeans methods
 skmeans.methods.list <- function(echo = FALSE) {
   skmlist <- c("standard", "genetic", "pclust", "kmndirs", "gmeans", "cluto")
   if (echo) { print('<<NOTA : "kmndirs" requires the kmndirs package installed ; "gmeans" and "cluto" require the corresponding eponymic external softwares installed.>>'); print(skmlist) }
@@ -85,15 +84,17 @@ skmeans_run <- function(data = NULL, k.test = 2:15, method = "standard", maxIter
   }
   names(skmeans.res) <- k.test
   
-  oridir <- getwd()
-  dir.create(methodword, recursive = TRUE, showWarnings = FALSE)
-  setwd(methodword)
-  saveRDS(skmeans.res, paste0("skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_results.RDS"))
+  # oridir <- getwd()
+  outdir <- paste0(odir, '/', method)
+  # dir.create(methodword, recursive = TRUE, showWarnings = FALSE)
+  dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
+  # setwd(methodword)
+  saveRDS(skmeans.res, paste0(outdir, "/skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_results.RDS"))
   
   ## Plotting silhouettes
   require(cluster)
   silh.mean <- silh.q25 <- silh.q75 <- vector()
-  pdf(paste0("skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_silhouettes.pdf"), width = 29.7/cm(1), height = 21/cm(1))
+  pdf(paste0(outdir, "/skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_silhouettes.pdf"), width = 29.7/cm(1), height = 21/cm(1))
   for (k in 1:length(skmeans.res)) {
     mysil <- silhouette(skmeans.res[[k]])
     silh.mean <- c(silh.mean, mean(mysil[,3]))
@@ -106,37 +107,40 @@ skmeans_run <- function(data = NULL, k.test = 2:15, method = "standard", maxIter
   lines(as.numeric(names(skmeans.res)), silh.q25, type = "b", pch = 20, col = 2)
   abline(h = 0, lty = 2)
   dev.off()
-  write.table(data.frame(k = k.test, silhouette = silh.mean, stringsAsFactors = FALSE), paste0("skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_silhouettes.txt"), sep="\t", quote = FALSE, row.names = FALSE)
+  write.table(data.frame(k = k.test, silhouette = silh.mean, stringsAsFactors = FALSE), paste0(outdir, "/skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_silhouettes.txt"), sep="\t", quote = FALSE, row.names = FALSE)
   
   crit.values <- vapply(1:length(k.test), function(k) { return(skmeans.res[[k]]$value) }, .1)
   best.idx <- which.max(crit.values)
   bestK <- k.test[best.idx]
   
   ## Ploting criterion values
-  png(paste0("skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_best.", bestK, ".png"), 1024, 1024)
+  png(paste0(outdir, "/skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_best.", bestK, ".png"), 1024, 1024)
   plot(k.test, crit.values, type = "b", pch = 20, xlab = "K", ylab = "Criterion", main = paste0("skmeans criterion (to maximize)\nmethod = ", methodword))
   points(bestK, crit.values[best.idx], pch = 18, cex= 2, col = 2)
   segments(bestK, 0, bestK, crit.values[best.idx], lty = 2, col = 2)
   dev.off()
   
   ## Membership
-  skmeans.membership <- data.frame(Sample = colnames(mymat), foreach(k = k.test, .combine = "cbind") %do% skmeans.res[[as.character(k)]]$cluster, stringsAsFactors = FALSE)
+  skmeans.membership <- data.frame(Sample = colnames(data), foreach(k = k.test, .combine = "cbind") %do% skmeans.res[[as.character(k)]]$cluster, stringsAsFactors = FALSE)
   colnames(skmeans.membership) <- c("Sample", k.test)
-  saveRDS(skmeans.membership[,c(1,which(colnames(skmeans.membership) == bestK))], paste0("skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_membership", "_best.", bestK, ".RDS"))
-  write.table(skmeans.membership[,c(1,which(colnames(skmeans.membership) == bestK))], paste0("skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_membership", "_best.", bestK, ".txt"), sep = "\t", quote = FALSE, row.names = FALSE)
-  write.table(skmeans.membership, paste0("skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_membership", "_AllK.txt"), sep = "\t", quote = FALSE, row.names = FALSE)
+  saveRDS(skmeans.membership[,c(1,which(colnames(skmeans.membership) == bestK))], paste0(outdir, "/skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_membership", "_best.", bestK, ".RDS"))
+  write.table(skmeans.membership[,c(1,which(colnames(skmeans.membership) == bestK))], paste0(outdir, "/skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_membership", "_best.", bestK, ".txt"), sep = "\t", quote = FALSE, row.names = FALSE)
+  write.table(skmeans.membership, paste0(outdir, "/skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_membership", "_AllK.txt"), sep = "\t", quote = FALSE, row.names = FALSE)
   
   ## AVG plot
   bestk.class <- skmeans.membership[,which(colnames(skmeans.membership) == bestK)]
-  medsampz <- foreach(k = unique(bestk.class), .combine = "cbind") %do% { return(vapply(1:nrow(mymat), function(x) { return(median(mymat[x,which(bestk.class == k)])) }, .1)) }
-  png(paste0("skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_best.", bestK, "_mediansamples.png"), width=1650, 1024)
+  medsampz <- foreach(k = unique(bestk.class), .combine = "cbind") %do% { return(vapply(1:nrow(data), function(x) { return(median(data[x,bestk.class == k])) }, .1)) }
+  png(paste0(outdir, "/skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_best.", bestK, "_mediansamples.png"), width=1650, 1024)
   plot(0,0, type = "n", xlim = c(1,nrow(medsampz)), ylim = range(medsampz), xaxs = "i", xlab = "Value index", ylab = "Value", main = paste0("SKmeans (", method, ") median samples for best K (", bestK, ").\nPopulations = ", paste0(as.vector(table(bestk.class)), collapse = ", ")))
   for (k in 1:ncol(medsampz)) lines(medsampz[,k], col = k)
   dev.off()
   
-  setwd(oridir)
-  
-  return(skmeans.res)
+  # msrange <- vapply(1:nrow(medsampz), function(x) {diff(range(medsampz[x,]))}, .1)
+  # png(paste0(outdir, "/skmeans_k", min(k.test), ".k", max(k.test), "_method.", methodword, "_maxIter.", maxIter, "_best.", bestK, "_mediansamples_sorted.png"), width=1650, 1024)
+  # plot(0,0, type = "n", xlim = c(1,nrow(medsampz)), ylim = range(medsampz), xaxs = "i", xlab = "Value index", ylab = "Value", main = paste0("SKmeans (", method, ") median samples for best K (", bestK, ").\nPopulations = ", paste0(as.vector(table(bestk.class)), collapse = ", ")))
+  # plot(0,0, type = "n", xlim = c(1,100), ylim = range(medsampz), xaxs = "i", xlab = "Value index", ylab = "Value", main = paste0("SKmeans (", method, ") median samples for best K (", bestK, ").\nPopulations = ", paste0(as.vector(table(bestk.class)), collapse = ", ")))
+  # for (k in 1:ncol(medsampz)) lines(medsampz[order(msrange, decreasing = TRUE),k], col = k)
+  # dev.off()
 }
 
 # source("/home/job/svn/genomics/CGH/R/chrload.R")
