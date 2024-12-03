@@ -72,11 +72,15 @@ target.vec    = Vector of test column names (ex: clinical annotation classes).
 test.type     = Which test to use ('F' for Fisher, 'X2' for X-squared).
 test.type.2 = type of statistical test for 2-classes variable (W : Wilcoxon, or T : Student's T-test).
 test.type.N = type of statistical test for N-classes (ANOVA : Analysis of variance,  or KW : Kruskal-Wallis).
+out.dir     = where to write results (tables, plots)
+make.plot   = try to perform plots ? (in some R installations, plots fail so ...)
+sim.p = Perform permutation-based p-value approximation
+n.permut = if sim.p == TRUE, number of permutations to perform
 \n")
 }
 
 ## MAIN FUNCTION
-chifisher <- function(annot.table = NULL, query.vec = NULL, target.vec = NULL, test.type = "F", test.type.2 = "W", test.type.N = "KW", numeric.as.continuous = FALSE) {
+chifisher <- function(annot.table = NULL, query.vec = NULL, target.vec = NULL, test.type = "F", test.type.2 = "W", test.type.N = "KW", numeric.as.continuous = FALSE, out.dir = getwd(), make.plot = TRUE, sim.p = TRUE, n.permut = 1E+6) {
   ## Loading annotations
   sfix <- ""
   # if (simulate) sfix <- "_SIMU"
@@ -111,23 +115,22 @@ chifisher <- function(annot.table = NULL, query.vec = NULL, target.vec = NULL, t
           next
         }
         ## Else :
-        cat("Crossing [", query.vec[k1], "] with [", target.vec[k2], "] ...\n", sep="")
+        message(paste0("Crossing [", query.vec[k1], "] with [", target.vec[k2], "] ..."))
         ct <- target.vec[k2]
         ctnum <- which(colnames(annot) == ct)
         # message(ctnum)
         if (length(ctnum) == 0) {
-          cat("Resquested target column [", ct, "] could not be found !\n", sep="")
+          message(paste0("Resquested target column [", ct, "] could not be found !"))
           tpv <- c(tpv, NA)
           next
         }
         if (length(ctnum) > 1) {
-          cat("Requested target column ", ct, "exists ", length(ctnum), " times !\nCan't choose ...\n", sep="")
+          message(paste0("Requested target column ", ct, "exists ", length(ctnum), " times !\nCan't choose ..."))
           tpv <- c(tpv, NA)
           next
         } else {
 
-          # message("here")
-          wdir <- paste0(query.vec[k1], "/", target.vec[k2])
+          wdir <- paste0(out.dir, '/', query.vec[k1], "/", target.vec[k2])
           dir.create(path = wdir, recursive = TRUE, showWarnings = FALSE)
 
           if (numeric.as.continuous & (is.numeric(annot[,ctnum]))) {
@@ -186,14 +189,15 @@ chifisher <- function(annot.table = NULL, query.vec = NULL, target.vec = NULL, t
             close(rcon)
             write.table(class.summary, file = paste0(outname, ".txt"), quote = FALSE, row.names = TRUE, col.names = FALSE, sep="\t", append = TRUE)
 
+            if (make.plot) {
+              mycounts <- vapply(sort(unique(annot[[query.vec[k1]]])), function(x) { length(which(annot[[query.vec[k1]]] == x))}, 1)
+              library(ggplot2)
+              ymin <- min(annot[[target.vec[k2]]], na.rm = TRUE) - (diff(range(annot[[target.vec[k2]]], na.rm = TRUE))*.05)
+              p <- ggplot2::qplot(factor(annot[[query.vec[k1]]]), annot[[target.vec[k2]]], geom = "violin", trim = FALSE, scale = "count", fill = factor(annot[[query.vec[k1]]]), xlab = query.vec[k1], ylab = target.vec[k2]) + geom_boxplot(width=.2) + ggplot2::geom_jitter(width = 0) + ggplot2::guides(fill=FALSE) + annotate("text", x = sort(unique(annot[[query.vec[k1]]])), y = ymin, label = mycounts, vjust = 2)
+              ggplot2::ggsave(filename = paste0(outname, "_gg.png"), width = 15, height = 15, units = "cm", plot = p)
+            }
 
-            mycounts <- vapply(sort(unique(annot[[query.vec[k1]]])), function(x) { length(which(annot[[query.vec[k1]]] == x))}, 1)
-            require(ggplot2)
-            ymin <- min(annot[[target.vec[k2]]], na.rm = TRUE) - (diff(range(annot[[target.vec[k2]]], na.rm = TRUE))*.05)
-            p <- qplot(factor(annot[[query.vec[k1]]]), annot[[target.vec[k2]]], geom = "violin", trim = FALSE, scale = "count", fill = factor(annot[[query.vec[k1]]]), xlab = query.vec[k1], ylab = target.vec[k2]) + geom_boxplot(width=.2) + geom_jitter(width = 0) + guides(fill=FALSE) + annotate("text", x = sort(unique(annot[[query.vec[k1]]])), y = ymin, label = mycounts, vjust = 2)
-            ggsave(filename = paste0(outname, "_gg.png"), width = 15, height = 15, units = "cm", plot = p)
-
-            saveRDS(Tres, paste0(outname, ".RDS"))
+            saveRDS(Tres, file = paste0(outname, ".RDS"))
 
           } else {
 
@@ -215,17 +219,18 @@ chifisher <- function(annot.table = NULL, query.vec = NULL, target.vec = NULL, t
       			if (test.type == "F") {
       			  Tres <- try(fisher.test(mymat), silent = TRUE)
       			  if (is(Tres) == "try-error") {
-      			    print(" Direct p-value computation failed. Trying in simulated mode (MCMC).")
-      			    Tres <- fisher.test(mymat, simulate.p.value=T, B=1E+6)
+      			    message(" Direct p-value computation failed. Trying in simulated mode (MCMC).")
+      			    Tres <- fisher.test(mymat, simulate.p.value=sim.p, B=n.permut)
       			  }
-      			} else if (test.type == "X2") Tres <- chisq.test(mymat) else stop("Unkown test!")
+      			} else if (test.type == "X2") Tres <- chisq.test(mymat, simulate.p.value = sim.p, B = n.permut) else stop("Unkown test!")
 
-      			require(vcd)
-      			pdf(paste0(outname, "_", target.vec[k2], ".pdf"), width = 21/cm(1), height = 21/cm(1))
-      			try(mosaic(mymat, shade = TRUE))
-      			try(assoc(mymat, shade = TRUE))
-      			dev.off()
-
+      			if(make.plot) {
+      			library(vcd)
+        			pdf(paste0(outname, "_", target.vec[k2], ".pdf"), width = 21/cm(1), height = 21/cm(1))
+        			try(vcd::mosaic(mymat, shade = TRUE))
+        			try(vcd::assoc(mymat, shade = TRUE))
+        			dev.off()
+      			}
       			clab <- paste(colclass, levels(classes), sep=".")
       			tlab <- paste(ct, levels(groups), sep=".")
       			dimnames(mymat) <- list(c(tlab), c(clab))
@@ -235,23 +240,14 @@ chifisher <- function(annot.table = NULL, query.vec = NULL, target.vec = NULL, t
       			if (test.type == "X2") write.table(paste("\n",Tres$method, ":\nX2 statistic = ", Tres$statistic, ", p-value = ", Tres$p.value, "\n\n\n", sep=""), paste0(outname, ".txt"), append=T, sep="\t", quote=F, col.names=F, row.names=F)
       		}
 
-    			if (Tres$p.value < 1E-05) cat("*****\n") else if (Tres$p.value < 1E-03) cat("***\n") else if (Tres$p.value < 5E-02) cat("*\n") else if (Tres$p.value < 1E-01) cat("~\n")
+    			if (Tres$p.value < 1E-05) message("*****") else if (Tres$p.value < 1E-03) message("***") else if (Tres$p.value < 5E-02) message("*") else if (Tres$p.value < 1E-01) message("~")
 
     			tpv <- c(tpv, Tres$p.value)
-
     		}
-
     	}
   	  final[,k1] <- tpv
   	}
   }
-  write.table( rbind(c(paste(test.type, "tests", sep="-"), query.vec), cbind(target.vec, final)), paste(test.type, "-", test.type.2, "-", test.type.N, "-TEST_globaltable", sfix, ".txt", sep=""), quote=F, row.names=F, col.names=F, sep="\t")
+  write.table(rbind(c(paste(test.type, "tests", sep="-"), query.vec), cbind(target.vec, final)), file = paste0(out.dir, '/', test.type, "-", test.type.2, "-", test.type.N, "-TEST_globaltable", sfix, ".txt"), quote=F, row.names=F, col.names=F, sep="\t")
 }
-
-## Call example :
-# setwd("/mnt/bioinfo/P19/P19_AS_GE/Analyse_ProbePacks/07_Results_characterization/20110412/GSE22153_Jonsson/02_Tests_statistiques")
-# annot <- read.table("JONSSON_ALL_annotations_Hclust_b20.txt", sep="\t", header=T, check.names=F)
-# colqueries <- c("Hclust_2", "NMF_3")
-# coltargets <- c("Sex", "Transplantability")
-# test.type <- "F"
 

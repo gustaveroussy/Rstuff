@@ -18,7 +18,7 @@
 ## VERSION NOTES:
 ##
 ## v2.8   20161019
-##      . Now an IGV XML session will be save when significant regions will be found (in pcut mode)
+##      . Now an IGV XML session will be saved when significant regions will be found (in pcut mode)
 ##        to ease data loading into IGV browser.
 ##
 ## v2.7b  20160930
@@ -128,7 +128,7 @@ chrconv.list <<- list(
 )
 
 ## MAIN FUNCTION
-clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="KW", test.type.continuous="COR.S", numeric.as.continuous = TRUE, gaincol="blue", losscol="red", ampcol="cyan4", delcol="orangered4", sp="hs", gb=19, amplim=1, ldb = "/mnt/data_cigogne/bioinfo/", width = 1440, height = 920, pcut = 1.0E-03, grd = TRUE, nthread = 1) {
+clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="KW", test.type.continuous="COR.S", numeric.as.continuous = TRUE, gaincol="blue", losscol="red", ampcol="cyan4", delcol="orangered4", sp="hs", gb=19, amplim=1, ldb = "/mnt/data_cigogne/bioinfo/", width = 1440, height = 920, pcut = 1.0E-03, grd = TRUE, out.dir = getwd(), nthread = 1) {
   
   if (!is.null(pcut)) {
     message("PCUT mode activated!")
@@ -159,7 +159,9 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
   
   ## IMPORT BANDES CYTO ET PREPARATION POUR PLOT KARYO
   cat("Importing chromosomes data  ...\n")
-  cytob <- read.table(paste(ldb, "/GoldenPath/", gv, "/cytoBandIdeo.", gv, sep=""), sep="\t", header=T, stringsAsFactors=F, comment.char="_", fill=T)
+  # cytob <- read.table(paste(ldb, "/GoldenPath/", gv, "/cytoBandIdeo.", gv, sep=""), sep="\t", header=T, stringsAsFactors=F, comment.char="_", fill=T)
+  cytob <- read.table(paste(ldb, "/GoldenPath/", gv, "/cytoBandIdeo.", gv, sep=""), sep="\t", header=F, stringsAsFactors=F, comment.char="_", fill=T)
+  colnames(cytob) <- c('X.chrom', 'chromStart', 'chromEnd', 'cytoband', 'gieStain')
   
   ## Filtering out invalid lines (UCSC recently added incomplete lines which seem to refer to chrN_unknown sequence sets, which is quite totally illogical. BJ 20140227)
   cytob <- cytob[which(!is.na(cytob$chromStart)),]
@@ -251,9 +253,9 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
       l7top[l7top < 0] <- 0
       l7low[l7low > 0] <- 0
       
-      dir.create(froot, mode="0775")
+      dir.create(paste0(out.dir, '/', froot), mode="0775")
       
-      xmlcon <- file(paste0(froot, "/", froot, "_", pcut, "_igv_session.xml"), open = "w")
+      xmlcon <- file(paste0(out.dir, '/', froot, "/", froot, "_", pcut, "_igv_session.xml"), open = "w")
       writeLines(
         text = c(
           '<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
@@ -262,7 +264,7 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
         ), con = xmlcon
       )
         
-      png(paste0(froot, "/", froot, ".png"), width=width, height=height)
+      png(paste0(out.dir, '/', froot, "/", froot, ".png"), width=width, height=height)
       par(mfrow=c(3,1), mgp=c(1,0,0), mar=c(2,2,3,2), xaxs="i")
       
       lidx <- which(globmedian < 0)
@@ -290,7 +292,7 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
       
       mbgdf <- data.frame(chrom = outable$Chrom, start = outable$Start, end = outable$End, value = outable$MedianL2R)
       BGhead <- paste0("track type=bedGraph name=\"", froot," Median L2R\" description=\"", froot, " Median log2(ratio)\" color=0,0,255 altColor=255,0,0 graphType=bar viewLimits=-0.75:0.75 autoScale=off windowingFunction=none smoothingWindow=off visibility=full")
-      bgfile <- paste0(froot, "/", froot, "_MedianL2R.bedgraph")
+      bgfile <- paste0(out.dir, '/', froot, "/", froot, "_MedianL2R.bedgraph")
       write.table(BGhead, bgfile, col.names=F, row.names=F, sep="\t", quote=F)
       write.table(mbgdf, bgfile, col.names=F, row.names=F, sep="\t", quote=F, append = TRUE)
       
@@ -319,7 +321,7 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
 
         cbgdf <- data.frame(chrom = outable$Chrom, start = outable$Start, end = outable$End, value = outable$Cor.P)
         BGhead <- paste0("track type=bedGraph name=\"", froot," Pearson Correlation\" description=\"", froot, " Pearson Correlation\" color=0,0,255 altColor=255,0,0 graphType=bar viewLimits=-1:1 autoScale=off windowingFunction=none smoothingWindow=off visibility=full")
-        bgfile <- paste0(froot, "/", froot, "_correlation.bedgraph")
+        bgfile <- paste0(out.dir, '/', froot, "/", froot, "_correlation.bedgraph")
         write.table(BGhead, bgfile, col.names=F, row.names=F, sep="\t", quote=F)
         write.table(cbgdf, bgfile, col.names=F, row.names=F, sep="\t", quote=F, append = TRUE)
         
@@ -352,7 +354,7 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
 
         cbgdf <- data.frame(chrom = outable$Chrom, start = outable$Start, end = outable$End, value = outable$Cor.S)
         BGhead <- paste0("track type=bedGraph name=\"", froot," Spearman Correlation\" description=\"", froot, " Spearman Correlation\" color=0,0,255 altColor=255,0,0 graphType=bar viewLimits=-1:1 autoScale=off windowingFunction=none smoothingWindow=off visibility=full")
-        bgfile <- paste0(froot, "/", froot, "_correlation.bedgraph")
+        bgfile <- paste0(out.dir, '/', froot, "/", froot, "_correlation.bedgraph")
         write.table(BGhead, bgfile, col.names=F, row.names=F, sep="\t", quote=F)
         write.table(cbgdf, bgfile, col.names=F, row.names=F, sep="\t", quote=F, append = TRUE)
         
@@ -399,12 +401,12 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
       if (ncateg > 2) testname <- paste0("_", toupper(test.type.N))
       
       # Creating output filenames' root
-      froot <- paste(colnames(annot)[colsel], testname, sep="")
+      froot <- paste0(colnames(annot)[colsel], testname)
       
       # Creating outdir
-      dir.create(froot, mode="0775")
+      dir.create(paste0(out.dir, '/', froot), mode="0775")
       
-      xmlcon <- file(paste0(froot, "/", froot, "_", pcut, "_igv_session.xml"), open = "w")
+      xmlcon <- file(paste0(out.dir, '/', froot, "/", froot, "_", pcut, "_igv_session.xml"), open = "w")
       writeLines(
         text = c(
           '<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
@@ -414,7 +416,7 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
       )
       reslist <- tracklist <- list()
       
-      png(paste(froot, "/", froot, ".png", sep=""), width=width, height=height)
+      png(paste0(out.dir, '/', froot, "/", froot, ".png"), width=width, height=height)
       par(mfrow=c(ncateg+1,1), mgp=c(1,0,0), mar=c(2,2,3,2), xaxs="i")
       
       # Computing median profiles for each class
@@ -471,7 +473,7 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
         
         cbgdf <- data.frame(chrom = outable$Chrom, start = outable$Start, end = outable$End, value = outable[[medcn]])
         BGhead <- paste0("track type=bedGraph name=\"", catname," median L2R\" description=\"", catname, " median log2ratio\" color=0,0,255, altColor=255,0,0 graphType=bar viewLimits=-0.75:0.75 autoScale=off windowingFunction=none smoothingWindow=off visibility=full")
-        bgfile <- paste0(froot, "/", catname, "_medianL2R.bedgraph")
+        bgfile <- paste0(out.dir, '/', froot, "/", catname, "_medianL2R.bedgraph")
         write.table(BGhead, bgfile, col.names=F, row.names=F, sep="\t", quote=F)
         write.table(cbgdf, bgfile, col.names=F, row.names=F, sep="\t", quote=F, append = TRUE)
         
@@ -556,7 +558,7 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
     dev.off()
     
     ## Dumping results table
-    write.table(outable, file=paste(froot, "/", froot, ".txt", sep=""), row.names=F, sep="\t", quote=F)
+    write.table(outable, file=paste0(out.dir, '/', froot, "/", froot, ".txt"), row.names=F, sep="\t", quote=F)
     
     if (!is.null(pcut)) {
       if (length(p.ok) > 0) {
@@ -564,7 +566,7 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
         if (testype == "categ") {
           ## Violinplots
           require(ggplot2)
-          pdf(paste0(froot, "/", froot, "_", pcut, "_violin.pdf"), width = 29.7/1.5/cm(1), height = 21/1.5/cm(1))
+          pdf(paste0(out.dir, '/', froot, "/", froot, "_", pcut, "_violin.pdf"), width = 29.7/1.5/cm(1), height = 21/1.5/cm(1))
           for (myp in p.ok) {
             ymin <- min(cghdata[myp,])
             print(p <- qplot(factor(annot[,colsel]), as.numeric(cghdata[myp,]), geom = "violin", trim = FALSE, scale = "count", fill = factor(annot[,colsel]), xlab = froot, ylab = "Log2(ratio)", main = paste0(datatable$Chrom[myp], ":", datatable$Start[myp], "-", datatable$End[myp], " (", sprintf("%.2E", outable$RawP[myp]), ")")) + geom_boxplot(width=.2) + geom_jitter(width = 0) + guides(fill=FALSE) + geom_hline(yintercept = 0, linetype = "dashed"))
@@ -577,7 +579,7 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
         bnam <- paste0(colnames(annot)[colsel], " (", test.name, ")")
         bnam <- gsub(pattern = "\\_", replacement = " ", x = bnam)
         BGhead <- paste0("track type=bedGraph name=\"", bnam,"\" description=\"", bnam, "\" color=100,0,0 graphType=bar autoScale=off windowingFunction=none smoothingWindow=off visibility=full")
-        bgfile <- paste0(froot, "/", froot, ".bedgraph")
+        bgfile <- paste0(out.dir, '/', froot, "/", froot, ".bedgraph")
         write.table(BGhead, bgfile, col.names=F, row.names=F, sep="\t", quote=F)
         write.table(bgdf, bgfile, col.names=F, row.names=F, sep="\t", quote=F, append = TRUE)
         
@@ -597,7 +599,7 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
         subdf <- outable[p.ok,]
         bdf <- data.frame(chrom = subdf$Chrom, start = subdf$Start, end = subdf$End, name = paste0("Sig", 1:nrow(subdf)), value = subdf$RawP)
         Bhead <- paste0("track name=\"", bnam, " p ", pcut, "\" description=\"", bnam, " p ", pcut, "\" visibility = 1 color=255,0,0")
-        bgfile <- paste0(froot, "/", froot, "_", pcut, ".bed")
+        bgfile <- paste0(out.dir, '/', froot, "/", froot, "_", pcut, ".bed")
         write.table(Bhead, bgfile, col.names=F, row.names=F, sep="\t", quote=F)
         write.table(bdf, bgfile, col.names=F, row.names=F, sep="\t", quote=F, append = TRUE)
         
@@ -618,8 +620,8 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
         ## GRD
         if (grd) {
           oridir <- getwd()
-          setwd(froot)
-          tmpfile <- paste0(froot, "_", pcut, ".txt")
+          setwd(paste0(out.dir, '/', froot))
+          tmpfile <- paste0(out.dir, '/', froot, "_", pcut, ".txt")
           grd.df <- data.frame(loc = paste0(outable$Chrom, ":", outable$Start, "-", outable$End), width = outable$End - outable$Start + 1, outable[,c(8,9,12:ncol(outable))])
           grd.df <- grd.df[p.ok,]
           colnames(grd.df)[1:4] <- c("#Loc", "Width", "Band1", "Band2")
@@ -630,7 +632,7 @@ clicom <-function(reg.table, annot.table, colvec, test.type.2="W", test.type.N="
           setwd(oridir)
         }
         
-        file.rename(from = froot, to = paste0("_", froot))
+        file.rename(from = paste0(out.dir, '/', froot), to = paste0(out.dir, '/', "_", froot))
       }
     }
 

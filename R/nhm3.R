@@ -302,7 +302,7 @@ nhm.prob <- function(probname, distance="euclidean", method="ward.D", sp="hs", a
   hc <- hclust(dd, method=method)
   hc$labels <- samples
   
-  ## Dummping cuts if asked
+  ## Dumping cuts if asked
   cut.df <- as.data.frame(matrix(data=NA, nrow=nrow(mat), ncol=nrow(mat)-1), stringsAsFactors=F)
   cut.df[,1] <- hc$labels
   colnames(cut.df)[1] <- "Sample"

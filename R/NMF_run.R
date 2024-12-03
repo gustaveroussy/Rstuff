@@ -70,7 +70,7 @@ shared.memory   :  (logical)            Activate shared memory (using big.matrix
 }
 
 ## Main function
-nmf_run <- function(data = NULL, rank = 2:3, method = "brunet", default.seed = "none", seed = 123456, nrun = 100, maxIter = 5000, shift.if.neg = TRUE, methods.compare = TRUE, methods.list = NULL, track = TRUE, classes = NULL, shuffle = TRUE, ncores = NULL, odir = getwd(), shared.memory = TRUE) {
+nmf_run <- function(data = NULL, rank = 2:3, method = "brunet", default.seed = "none", seed = 123456, nrun = 100, maxIter = 5000, shift.if.neg = TRUE, methods.compare = FALSE, methods.list = NULL, track = TRUE, classes = NULL, shuffle = TRUE, ncores = NULL, odir = getwd(), shared.memory = TRUE) {
   # data = mymat
   # rank = 2:3
   # method = "brunet"
